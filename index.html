@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dandelion: Next-Generation Datastore</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌼</text></svg>">
+    <style>
+        :root {
+            --bg: #020708;
+            --bg-2: #07100e;
+            --panel: rgba(13, 22, 21, 0.78);
+            --panel-strong: rgba(12, 19, 18, 0.95);
+            --line: rgba(158, 218, 91, 0.22);
+            --line-strong: rgba(158, 218, 91, 0.78);
+            --text: #f2f5ef;
+            --muted: #c4cbc4;
+            --dim: #8e998f;
+            --accent: #a5e85e;
+            --accent-2: #78b83c;
+            --shadow: rgba(110, 202, 43, 0.28);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 72% 10%, rgba(99, 185, 52, 0.16), transparent 25rem),
+                radial-gradient(circle at 10% 26%, rgba(177, 241, 95, 0.14), transparent 24rem),
+                linear-gradient(180deg, #020708 0%, #04100f 44%, #020708 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            line-height: 1.55;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background-image:
+                linear-gradient(rgba(160, 232, 86, 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(160, 232, 86, 0.045) 1px, transparent 1px);
+            background-size: 80px 80px;
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 70%);
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        .container {
+            width: min(100% - 40px, 1180px);
+            margin: 0 auto;
+        }
+
+        header {
+            position: fixed;
+            inset: 0 0 auto;
+            z-index: 50;
+            background: rgba(2, 7, 8, 0.78);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+            backdrop-filter: blur(18px);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 70px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 1.55rem;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+
+        .brand-mark {
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            color: var(--accent);
+            border: 1px solid rgba(165, 232, 94, 0.35);
+            box-shadow: 0 0 24px rgba(165, 232, 94, 0.24);
+        }
+
+        nav ul {
+            display: flex;
+            gap: 2.2rem;
+            list-style: none;
+        }
+
+        nav a {
+            position: relative;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        nav a::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -22px;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--shadow);
+            opacity: 0;
+            transform: scaleX(0.35);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        nav a:hover::after,
+        nav a:focus-visible::after {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+
+        .hero {
+            position: relative;
+            min-height: 435px;
+            padding-top: 70px;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(2, 7, 8, 0.20), rgba(2, 7, 8, 0.74) 42%, rgba(2, 7, 8, 0.18)),
+                linear-gradient(180deg, rgba(2, 7, 8, 0.12), rgba(2, 7, 8, 0.86)),
+                url("docs/dandelion.jpg") center/cover no-repeat;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 58% 34%, rgba(165, 232, 94, 0.52) 0 3px, transparent 4px),
+                radial-gradient(circle at 74% 30%, rgba(165, 232, 94, 0.34) 0 3px, transparent 4px),
+                radial-gradient(circle at 90% 45%, rgba(165, 232, 94, 0.40) 0 4px, transparent 5px),
+                linear-gradient(34deg, transparent 51%, rgba(165, 232, 94, 0.20) 51.2%, transparent 51.6%),
+                linear-gradient(152deg, transparent 63%, rgba(165, 232, 94, 0.14) 63.2%, transparent 63.7%);
+            opacity: 0.72;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            min-height: 365px;
+            padding: 2rem 0 4.5rem;
+        }
+
+        .hero-figure {
+            position: absolute;
+            left: -2.2rem;
+            bottom: 0;
+            width: min(285px, 24vw);
+            height: 330px;
+            pointer-events: none;
+        }
+
+        .hero-figure::before {
+            content: "";
+            position: absolute;
+            left: 8%;
+            bottom: 3%;
+            width: 78%;
+            height: 44%;
+            background: radial-gradient(circle, rgba(165, 232, 94, 0.22), transparent 68%);
+            filter: blur(24px);
+        }
+
+        .dandelion-girl {
+            position: absolute;
+            left: 0;
+            bottom: -4.8rem;
+            width: 100%;
+            max-height: 380px;
+            object-fit: contain;
+            opacity: 0.74;
+            filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.62));
+        }
+
+        .hero-copy {
+            max-width: 660px;
+            margin-left: min(34vw, 360px);
+        }
+
+        .hero h1 {
+            color: var(--accent);
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            line-height: 1.08;
+            font-weight: 500;
+            letter-spacing: 0;
+            text-shadow: 0 0 24px rgba(165, 232, 94, 0.24);
+        }
+
+        .hero p {
+            max-width: 620px;
+            margin-top: 1.1rem;
+            color: var(--text);
+            font-size: 1.18rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0.65rem 1.45rem;
+            color: #061008;
+            background: var(--accent);
+            border: 1px solid rgba(165, 232, 94, 0.75);
+            border-radius: 999px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .btn:hover {
+            color: #061008;
+            background: #b8f477;
+            box-shadow: 0 0 28px rgba(165, 232, 94, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            color: var(--text);
+            background: rgba(4, 12, 11, 0.42);
+            border-color: var(--line-strong);
+        }
+
+        .btn.secondary:hover {
+            color: var(--accent);
+            background: rgba(165, 232, 94, 0.08);
+        }
+
+        .btn.disabled,
+        .btn.disabled:hover {
+            color: rgba(242, 245, 239, 0.62);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .hero .btn {
+            margin-top: 1.5rem;
+            min-width: 190px;
+        }
+
+        main {
+            position: relative;
+            margin-top: -3.9rem;
+        }
+
+        .component-nav {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 2rem;
+            padding: 1.65rem;
+            margin-bottom: 2.2rem;
+            background: rgba(3, 8, 8, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+        }
+
+        .component-tile {
+            display: grid;
+            place-items: center;
+            gap: 0.7rem;
+            min-height: 116px;
+            padding: 1rem;
+            color: var(--accent);
+            text-align: center;
+            text-decoration: none;
+            background: rgba(12, 19, 18, 0.68);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            border-radius: 10px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .component-tile:hover {
+            border-color: var(--line-strong);
+            box-shadow: 0 0 30px rgba(165, 232, 94, 0.18);
+            transform: translateY(-2px);
+        }
+
+        .component-tile i {
+            font-size: 2.55rem;
+        }
+
+        .component-tile span {
+            font-size: 1rem;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 4px;
+        }
+
+        section {
+            margin-bottom: 2rem;
+            scroll-margin-top: 94px;
+        }
+
+        section h2 {
+            margin-bottom: 0.8rem;
+            color: var(--text);
+            font-size: 1.9rem;
+            line-height: 1.2;
+        }
+
+        .section-copy {
+            max-width: 920px;
+            color: var(--muted);
+            font-size: 1.03rem;
+        }
+
+        .components-title {
+            position: relative;
+            margin-top: 2rem;
+            padding-bottom: 0.6rem;
+        }
+
+        .components-title::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 460px;
+            max-width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, var(--line-strong), transparent);
+            box-shadow: 0 0 18px var(--shadow);
+        }
+
+        .components-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .component {
+            background: linear-gradient(110deg, rgba(14, 24, 23, 0.92), rgba(8, 15, 15, 0.92));
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            overflow: clip;
+        }
+
+        .component[open] {
+            border-color: var(--line-strong);
+            box-shadow: 0 0 0 1px rgba(165, 232, 94, 0.20), 0 0 34px rgba(126, 211, 45, 0.22);
+        }
+
+        .component summary {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 1rem;
+            align-items: center;
+            min-height: 68px;
+            padding: 1rem 1.6rem;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .component summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .component-number {
+            display: grid;
+            place-items: center;
+            width: 32px;
+            height: 32px;
+            color: #061008;
+            background: var(--accent);
+            border-radius: 50%;
+            font-weight: 800;
+            box-shadow: 0 0 18px rgba(165, 232, 94, 0.28);
+        }
+
+        .summary-copy {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            min-width: 0;
+        }
+
+        .summary-copy h3 {
+            color: var(--text);
+            font-size: 1.24rem;
+            line-height: 1.2;
+        }
+
+        .summary-note {
+            color: var(--dim);
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+
+        .summary-copy p {
+            color: var(--muted);
+            font-size: 0.86rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chevron {
+            color: var(--text);
+            transition: transform 0.2s ease;
+        }
+
+        .component[open] .chevron {
+            transform: rotate(180deg);
+        }
+
+        .component-body {
+            padding: 0 1.6rem 1.55rem 4.85rem;
+        }
+
+        .component-lead {
+            position: relative;
+            max-width: 870px;
+            margin-bottom: 1.25rem;
+            color: var(--text);
+        }
+
+        .dlht-panel {
+            position: relative;
+            padding: 1.35rem 1.55rem;
+            margin-bottom: 1.2rem;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 82% 55%, rgba(165, 232, 94, 0.22), transparent 13rem),
+                linear-gradient(105deg, rgba(20, 38, 24, 0.68), rgba(12, 20, 18, 0.86));
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+
+        .dlht-panel::after {
+            content: "";
+            position: absolute;
+            right: 2rem;
+            bottom: -2rem;
+            width: 220px;
+            height: 90px;
+            background: var(--accent);
+            opacity: 0.20;
+            filter: blur(34px);
+            pointer-events: none;
+        }
+
+        .dlht-layout {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 180px;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .hercules-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--accent);
+            font-size: 1.05rem;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .new-pill {
+            display: inline-flex;
+            padding: 0.15rem 0.42rem;
+            color: #10210a;
+            background: rgba(165, 232, 94, 0.72);
+            border-radius: 999px;
+            font-size: 0.62rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .hercules-text {
+            max-width: 650px;
+            margin-top: 0.8rem;
+            color: var(--text);
+            font-size: 0.93rem;
+        }
+
+        .hercules-icon {
+            position: relative;
+            z-index: 1;
+            justify-self: center;
+            width: 156px;
+            max-width: 100%;
+            opacity: 0.94;
+            filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.48));
+        }
+
+        .metrics {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.2rem;
+            margin-top: 1.1rem;
+            padding-top: 1.1rem;
+            border-top: 1px solid rgba(165, 232, 94, 0.22);
+        }
+
+        .metric {
+            display: grid;
+            gap: 0.25rem;
+        }
+
+        .metric strong {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--accent);
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .metric span {
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .component-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 1.1rem;
+        }
+
+        footer {
+            margin-top: 3rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(2, 7, 8, 0.72);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.8rem 0;
+            color: var(--dim);
+            font-size: 0.9rem;
+        }
+
+        .footer-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
+        @media screen and (max-width: 980px) {
+            .hero-copy {
+                margin-left: min(26vw, 220px);
+            }
+
+            .component-nav {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .summary-copy {
+                display: block;
+            }
+
+            .summary-copy p {
+                margin-top: 0.35rem;
+            }
+        }
+
+        @media screen and (max-width: 760px) {
+            .header-content {
+                min-height: auto;
+                padding: 0.9rem 0;
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+
+            nav ul {
+                gap: 1.1rem;
+            }
+
+            nav a::after {
+                bottom: -6px;
+            }
+
+            .hero {
+                padding-top: 110px;
+            }
+
+            .hero-content {
+                min-height: 390px;
+                align-items: flex-end;
+                padding-bottom: 5rem;
+            }
+
+            .hero-figure {
+                position: absolute;
+                inset: auto auto -1.6rem -2.5rem;
+                width: 170px;
+                min-height: 230px;
+                opacity: 0.20;
+                pointer-events: none;
+            }
+
+            .dandelion-girl {
+                left: 0;
+                bottom: -4.2rem;
+                width: 170px;
+            }
+
+            .hero-copy {
+                margin-left: 0;
+                position: relative;
+                z-index: 2;
+            }
+
+            .component-nav {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .component summary {
+                grid-template-columns: auto minmax(0, 1fr) auto;
+                padding: 1rem;
+            }
+
+            .component-body {
+                padding: 0 1rem 1.2rem;
+            }
+
+            .dlht-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .hercules-icon {
+                grid-row: 1;
+                width: 130px;
+                opacity: 0.88;
+            }
+
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-content {
+                flex-direction: column;
+            }
+        }
+
+        @media screen and (max-width: 500px) {
+            .container {
+                width: min(100% - 28px, 1180px);
+            }
+
+            .brand {
+                font-size: 1.35rem;
+            }
+
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .component-nav {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-copy h3 {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <a href="#" class="brand" aria-label="Dandelion home">
+                <span class="brand-mark"><i class="fas fa-seedling"></i></span>
+                <span>Dandelion</span>
+            </a>
+            <nav aria-label="Primary navigation">
+                <ul>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#components">Components</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero" aria-label="Dandelion overview">
+        <div class="container hero-content">
+            <div class="hero-figure" aria-hidden="true">
+                <img src="docs/dandelion-girl.png" alt="" class="dandelion-girl">
+            </div>
+            <div class="hero-copy">
+                <h1>Next-Generation Datastore</h1>
+                <p>Revolutionizing data management with nature-inspired technology.<br>This is a project developed in <i>Huawei Edinburgh Research Center</i>.</p>
+                <a href="#components" class="btn">Explore Dandelion</a>
+            </div>
+        </div>
+    </section>
+
+    <main class="container">
+        <div class="component-nav" aria-label="Component shortcuts">
+            <a href="#dlht" class="component-tile">
+                <i class="fas fa-hashtag"></i>
+                <span>DLHT</span>
+            </a>
+            <a href="#dltree" class="component-tile">
+                <i class="fas fa-tree"></i>
+                <span>DLTree</span>
+            </a>
+            <a href="#u2pc" class="component-tile">
+                <i class="fas fa-handshake"></i>
+                <span>U2PC</span>
+            </a>
+            <a href="#pandora" class="component-tile">
+                <i class="fas fa-box-open"></i>
+                <span>Pandora</span>
+            </a>
+            <a href="#dlstore" class="component-tile">
+                <i class="fas fa-database"></i>
+                <span>DLStore</span>
+            </a>
+        </div>
+
+        <section id="about">
+            <h2>About Dandelion</h2>
+            <p class="section-copy">Dandelion is a cutting-edge distributed transactional fault-tolerant datastore inspired by the resilience and adaptability of nature. Our project combines innovative technologies to create a robust and efficient solution for modern data management challenges, all while maintaining the lightness and flexibility of a dandelion seed.</p>
+        </section>
+
+        <section id="components">
+            <h2 class="components-title">Key Components</h2>
+            <div class="components-list">
+                <details id="dlht" class="component" open>
+                    <summary>
+                        <span class="component-number">1</span>
+                        <span class="summary-copy">
+                            <h3>DLHT (Dandelion HashTable)</h3>
+                            <p>High-performance hash table design optimized for fast lookups and efficient memory usage.</p>
+                        </span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </summary>
+                    <div class="component-body">
+                        <p class="component-lead">DLHT is our high-performance hashtable design, optimized for fast lookups and efficient memory usage. Like the intricate structure of a dandelion's seed head, it forms the backbone of our data storage system, ensuring quick access to your data.</p>
+
+                        <div class="dlht-panel">
+                            <div class="dlht-layout">
+                                <div>
+                                    <div class="hercules-badge">
+                                        Hercules: Fast analysis. No paralysis in GaussDB
+                                        <span class="new-pill">New</span>
+                                    </div>
+                                    <p class="hercules-text">Hercules, our GaussDB execution framework, specializes DLHT for concurrency-aware hash joins and hash aggregations, turning the hashtable into a core primitive for "record-class" analytics. The result is fewer repartition barriers, fewer copies, lower synchronization cost, and better scaling on many-core NUMA machines.</p>
+                                    <div class="component-buttons">
+                                        <a href="docs/hercules-paper.pdf" target="_blank" class="btn">Extended abstract</a>
+                                        <span class="btn disabled" aria-disabled="true">Full Paper (TBD)</span>
+                                        <a href="docs/hercules-poster.pdf" target="_blank" class="btn">Hercules Poster</a>
+                                    </div>
+                                </div>
+                                <img src="docs/hercules-icon.png" alt="Hercules icon" class="hercules-icon">
+                            </div>
+
+                            <div class="metrics" aria-label="Hercules performance highlights">
+                                <div class="metric">
+                                    <strong><i class="fas fa-rocket"></i>4.3x</strong>
+                                    <span>Faster TPC-H vs. GaussDB</span>
+                                </div>
+                                <div class="metric">
+                                    <strong><i class="fas fa-bolt"></i>2.5x</strong>
+                                    <span>Lower latency vs. state-of-the-art</span>
+                                </div>
+                                <div class="metric">
+                                    <strong><i class="fas fa-server"></i>TP/AP</strong>
+                                    <span>2.4M tpmC with TPC-H SF100 in 22s on one Arm server; 4.5s for AP alone</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-buttons">
+                            <a href="https://arxiv.org/pdf/2406.09986" target="_blank" class="btn secondary">Paper</a>
+                            <a href="https://www.slideshare.net/slideshow/dandelion-hashtable-beyond-billion-requests-per-second-on-a-commodity-server/269721209" target="_blank" class="btn secondary">Slides</a>
+                            <a href="https://www.slideshare.net/slideshow/dandelion-hashtable-beyond-billion-requests-per-second-on-a-commodity-server-poster-eurosys-24/270292795" target="_blank" class="btn secondary">Poster</a>
+                        </div>
+                    </div>
+                </details>
+
+                <details id="dltree" class="component">
+                    <summary>
+                        <span class="component-number">2</span>
+                        <span class="summary-copy">
+                            <h3>DLTree (Dandelion B+ Tree)</h3>
+                            <p>Efficient range queries and ordered data storage.</p>
+                        </span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </summary>
+                    <div class="component-body">
+                        <p class="component-lead">DLTree is our implementation of a B+ tree, designed for efficient range queries and ordered data storage. It complements DLHT by providing fast access to sorted data and supporting complex query operations. DLTree follows the <i>Spiderman</i> technique, which couples software prefetching with request multiplexing to boost traversal performance.</p>
+                        <p class="component-lead">Long Vu won <a target="_blank" href="https://undergraduateawards.com/winners/highly-commended-2023">a global undergraduate award</a> for his thesis describing Spiderman and demonstrating 30% performance improvement on the fastest B+tree.</p>
+                        <div class="component-buttons">
+                            <a href="docs/dltree-spiderman-technique.png" target="_blank" class="btn secondary"><i>Spiderman</i> Poster</a>
+                            <a href="#" class="btn secondary">DLTree Paper (TBA)</a>
+                        </div>
+                    </div>
+                </details>
+
+                <details id="u2pc" class="component">
+                    <summary>
+                        <span class="component-number">3</span>
+                        <span class="summary-copy">
+                            <h3>U2PC (Unanimous Two-Phase Commit)</h3>
+                            <p>Distributed transaction consistency with ACID guarantees.</p>
+                        </span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </summary>
+                    <div class="component-body">
+                        <p class="component-lead">U2PC is our innovative protocol for ensuring data consistency across distributed systems. It provides a unanimous approach to transaction management, guaranteeing ACID properties in a distributed environment.</p>
+                        <div class="component-buttons">
+                            <a href="https://dl.acm.org/doi/10.1145/3642976.3653035" target="_blank" class="btn secondary">Paper</a>
+                            <a href="docs/u2pc-slides.pdf" target="_blank" class="btn secondary">Slides</a>
+                            <a href="docs/u2pc-poster.pdf" target="_blank" class="btn secondary">Poster</a>
+                        </div>
+                    </div>
+                </details>
+
+                <details id="pandora" class="component">
+                    <summary>
+                        <span class="component-number">4</span>
+                        <span class="summary-copy">
+                            <h3>Pandora <span class="summary-note">with M. Dananjaya and V. Nagarajan</span></h3>
+                            <p>Strongly-consistent transactions over passive disaggregated memory.</p>
+                        </span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </summary>
+                    <div class="component-body">
+                        <p class="component-lead">Pandora is our pioneering protocol enabling strongly-consistent distributed transactions over passive disaggregated memory. Pandora leverages the decentralized nature of disaggregated memory to ensure exceptional availability and correctness without compromising performance.</p>
+                        <div class="component-buttons">
+                            <a href="https://openproceedings.org/2025/conf/edbt/paper-154.pdf" target="_blank" class="btn secondary">Paper</a>
+                            <a href="https://docs.google.com/presentation/d/1Hyve0v76UzwFqkhsZsg3qMV4_brtNXpK6xogQJ5-778/edit?usp=sharing" target="_blank" class="btn secondary">Slides</a>
+                        </div>
+                    </div>
+                </details>
+
+                <details id="dlstore" class="component">
+                    <summary>
+                        <span class="component-number">5</span>
+                        <span class="summary-copy">
+                            <h3>DLStore (Dandelion Datastore)</h3>
+                            <p>The complete datastore system that brings the components together.</p>
+                        </span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </summary>
+                    <div class="component-body">
+                        <p class="component-lead">The Dandelion Datastore combines DLHT, DLTree, U2PC and other transactional protocols with a datastore-optimized network library to create a fast distributed in-memory datastore with strongly-consistent and fault-tolerant transactions.</p>
+                        <div class="component-buttons">
+                            <a href="https://www.slideshare.net/slideshow/dandelion-hundreds-of-millions-of-distributed-replicated-transactions-with-few-machines-poster-hdms-24/270293146" target="_blank" class="btn secondary">Poster</a>
+                            <a href="https://github.com/Cjen1/dandelion-tla" class="btn secondary">TLA+</a>
+                            <a href="https://www.vldb.org/pvldb/vol18/p1264-katsarakis.pdf" target="_blank" class="btn secondary">Paper</a>
+                            <a href="docs/dandelion-vldb25-slides.pptx" target="_blank" class="btn secondary">Slides</a>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <section id="contact">
+            <h2>Contact</h2>
+            <p class="section-copy">Dandelion is a project developed in Huawei Edinburgh Research Center. The team includes <a href="https://antonis.io/" target="_blank">Antonios Katsarakis</a>, <a href="https://vasigavr1.github.io/" target="_blank">Vasilis Gavrielatos</a>, <a href="https://www.cst.cam.ac.uk/people/cjj39" target="_blank">Chris Jensen</a>, <a href="https://uk.linkedin.com/in/longvuphanthang" target="_blank">Long Vu</a>, and <a href="https://ntarmos.info/" target="_blank">Nikos Ntarmos</a>. Get in touch: antonios.katsarakis@huawei.com</p>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <span class="footer-brand"><span class="brand-mark"><i class="fas fa-seedling"></i></span> Dandelion — Next-generation datastore inspired by nature.</span>
+            <span>&copy; 2024 Huawei Edinburgh Research Center. All rights reserved.</span>
+        </div>
+    </footer>
+    <script>
+        const componentDetails = [...document.querySelectorAll(".components-list details")];
+
+        function openComponentFromHash() {
+            const target = document.querySelector(window.location.hash);
+            if (!target || !target.matches(".components-list details")) {
+                componentDetails.forEach((item) => {
+                    item.open = item.id === "dlht";
+                });
+                return;
+            }
+
+            componentDetails.forEach((item) => {
+                item.open = item === target;
+            });
+        }
+
+        componentDetails.forEach((item) => {
+            item.addEventListener("toggle", () => {
+                if (!item.open) return;
+                componentDetails.forEach((other) => {
+                    if (other !== item) other.open = false;
+                });
+            });
+        });
+
+        window.addEventListener("hashchange", openComponentFromHash);
+        openComponentFromHash();
+    </script>
+</body>
+</html>
